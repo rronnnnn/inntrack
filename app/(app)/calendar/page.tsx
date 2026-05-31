@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FloatingButton } from "@/components/ui/FloatingButton";
@@ -16,7 +17,7 @@ function parseMonthParam(m: string | null): { year: number; monthIndex: number }
   return { year: d.getFullYear(), monthIndex: d.getMonth() };
 }
 
-export default function CalendarPage() {
+function CalendarPageInner() {
   const sp = useSearchParams();
   const { motel } = useStore();
   const { year, monthIndex } = parseMonthParam(sp.get("m"));
@@ -33,6 +34,14 @@ export default function CalendarPage() {
       <Legend />
       <FloatingButton href="/reservations/new" label="New reservation" />
     </>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarPageInner />
+    </Suspense>
   );
 }
 
