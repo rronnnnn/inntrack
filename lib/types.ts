@@ -60,8 +60,12 @@ export type Reservation = {
   guestCount: number;
   /** ISO date YYYY-MM-DD, inclusive */
   checkIn: string;
+  /** HH:MM local time for check-in (optional, defaults to 00:00) */
+  checkInTime?: string;
   /** ISO date YYYY-MM-DD, exclusive (day of departure) */
   checkOut: string;
+  /** HH:MM local time for check-out (optional, defaults to 00:00) */
+  checkOutTime?: string;
   status: ReservationStatus;
   pricePerNight: number;
   currency: string;
