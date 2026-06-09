@@ -38,7 +38,9 @@ export function ReservationForm({ initial, defaultRoomId, defaultCheckIn }: Prop
   const [guestName, setGuestName] = useState(initial?.guestName ?? "");
   const [guestCount, setGuestCount] = useState(initial?.guestCount ?? 1);
   const [checkIn, setCheckIn] = useState(initialCheckIn);
+  const [checkInTime, setCheckInTime] = useState(initial?.checkInTime ?? "14:00");
   const [checkOut, setCheckOut] = useState(initialCheckOut);
+  const [checkOutTime, setCheckOutTime] = useState(initial?.checkOutTime ?? "11:00");
   const [status, setStatus] = useState<ReservationStatus>(
     initial?.status ?? "confirmed",
   );
@@ -73,7 +75,9 @@ export function ReservationForm({ initial, defaultRoomId, defaultCheckIn }: Prop
       guestName: guestName.trim(),
       guestCount,
       checkIn,
+      checkInTime: checkInTime || undefined,
       checkOut,
+      checkOutTime: checkOutTime || undefined,
       status,
       pricePerNight,
       currency: initial?.currency ?? "MKD",
@@ -153,7 +157,7 @@ export function ReservationForm({ initial, defaultRoomId, defaultCheckIn }: Prop
 
       <div className="grid grid-cols-2 gap-3">
         <Input
-          label="Check-in"
+          label="Check-in date"
           type="date"
           value={checkIn}
           onChange={(e) => {
@@ -166,12 +170,27 @@ export function ReservationForm({ initial, defaultRoomId, defaultCheckIn }: Prop
           required
         />
         <Input
-          label="Check-out"
+          label="Check-in time"
+          type="time"
+          value={checkInTime}
+          onChange={(e) => setCheckInTime(e.target.value)}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Check-out date"
           type="date"
           value={checkOut}
           min={toISODate(addDays(parseISODate(checkIn), 1))}
           onChange={(e) => setCheckOut(e.target.value)}
           required
+        />
+        <Input
+          label="Check-out time"
+          type="time"
+          value={checkOutTime}
+          onChange={(e) => setCheckOutTime(e.target.value)}
         />
       </div>
 
