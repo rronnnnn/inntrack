@@ -10,6 +10,7 @@ import {
   parseISODate,
   toISODate,
 } from "@/lib/dates";
+import { getCheckInOffset, getCheckOutOffset } from "@/lib/timeOffset";
 import type { Reservation, ReservationStatus } from "@/lib/types";
 
 const DAY_W = 56; // px per day column
@@ -33,6 +34,10 @@ type Bar = {
   span: number;
   clippedLeft: boolean;
   clippedRight: boolean;
+  /** % offset from left edge of first cell (0–100) */
+  startPct: number;
+  /** % offset from left edge of last cell (0–100) */
+  endPct: number;
 };
 
 export function CalendarGrid({
@@ -71,18 +76,28 @@ export function CalendarGrid({
     for (const r of reservations) {
       const cin = parseISODate(r.checkIn);
       const cout = parseISODate(r.checkOut);
+      const isSameDay = r.checkIn === r.checkOut;
+
+      // For same-day reservations (checkIn === checkOut), treat checkout as end-of-day
+      const coutForRange = isSameDay ? new Date(cin.getTime() + 86400000) : cout;
+
       // Skip if outside this month
-      if (cout <= monthStart || cin >= monthEndExclusive) continue;
+      if (coutForRange <= monthStart || cin >= monthEndExclusive) continue;
       const startClipped = cin < monthStart;
-      const endClipped = cout > monthEndExclusive;
+      const endClipped = coutForRange > monthEndExclusive;
       const start = startClipped ? monthStart : cin;
-      const end = endClipped ? monthEndExclusive : cout;
+      const end = endClipped ? monthEndExclusive : coutForRange;
       const startDay = start.getDate(); // 1..n
       const endDayExclusive = end.getMonth() === monthIndex ? end.getDate() : nDays + 1;
-      const span = endDayExclusive - startDay;
+      // Treat same-day as span=1
+      const span = isSameDay ? 1 : endDayExclusive - startDay;
       if (span <= 0) continue;
       const roomIndex = sortedRooms.findIndex((rm) => rm.id === r.roomId);
       if (roomIndex < 0) continue;
+
+      const startPct = startClipped ? 0 : getCheckInOffset(r.checkInTime);
+      const endPct = endClipped ? 100 : getCheckOutOffset(r.checkOutTime);
+
       out.push({
         res: r,
         roomIndex,
@@ -90,6 +105,8 @@ export function CalendarGrid({
         span,
         clippedLeft: startClipped,
         clippedRight: endClipped,
+        startPct,
+        endPct,
       });
     }
     return out;
@@ -205,16 +222,28 @@ export function CalendarGrid({
             (parseISODate(b.res.checkOut).getTime() -
               parseISODate(b.res.checkIn).getTime()) /
             86400000;
+          // Partial-day margin offsets:
+          // marginLeft shifts start within first cell, marginRight trims end within last cell.
+          // Base margin of 6px (m-1.5) is included in the offset so the bar stays within cell bounds.
+          const BASE_MARGIN = 6; // px, matches m-1.5
+          const marginLeft = b.clippedLeft
+            ? BASE_MARGIN
+            : (b.startPct / 100) * DAY_W;
+          const marginRight = b.clippedRight
+            ? BASE_MARGIN
+            : ((100 - b.endPct) / 100) * DAY_W;
           return (
             <Link
               key={b.res.id}
               href={`/reservations/${b.res.id}`}
-              className={`relative z-10 m-1.5 rounded-card px-2 flex items-center text-xs font-medium shadow-sm overflow-hidden ${BAR_COLORS[b.res.status]} ${
+              className={`relative z-10 my-1.5 rounded-card px-2 flex items-center text-xs font-medium shadow-sm overflow-hidden ${BAR_COLORS[b.res.status]} ${
                 b.clippedLeft ? "rounded-l-none" : ""
               } ${b.clippedRight ? "rounded-r-none" : ""}`}
               style={{
                 gridRow: b.roomIndex + 2,
                 gridColumn: `${b.startCol + 1} / span ${b.span}`,
+                marginLeft,
+                marginRight,
               }}
               title={`${b.res.guestName} · ${b.res.guestCount} ppl · ${nights} night${nights === 1 ? "" : "s"}`}
             >
