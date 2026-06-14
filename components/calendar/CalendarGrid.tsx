@@ -10,7 +10,11 @@ import {
   parseISODate,
   toISODate,
 } from "@/lib/dates";
-import { getCheckInOffset, getCheckOutOffset } from "@/lib/timeOffset";
+import {
+  checkoutOccupiesCheckoutDay,
+  getCheckInOffset,
+  getCheckOutOffset,
+} from "@/lib/timeOffset";
 import type { Reservation, ReservationStatus } from "@/lib/types";
 
 const DAY_W = 56; // px per day column
@@ -77,26 +81,43 @@ export function CalendarGrid({
       const cin = parseISODate(r.checkIn);
       const cout = parseISODate(r.checkOut);
       const isSameDay = r.checkIn === r.checkOut;
+      // A checkout time after 00:00 means the checkout day is partially
+      // occupied, so the bar extends one extra (partial) cell onto that day.
+      const checkoutPartial =
+        !isSameDay && checkoutOccupiesCheckoutDay(r.checkOutTime);
 
-      // For same-day reservations (checkIn === checkOut), treat checkout as end-of-day
-      const coutForRange = isSameDay ? new Date(cin.getTime() + 86400000) : cout;
+      // Exclusive end of the day range the bar occupies:
+      // - same-day: a single cell (the check-in day)
+      // - partial checkout: through the checkout day inclusive → +1 day
+      // - otherwise: checkout stays exclusive (last night only)
+      const occupancyEndExclusive = isSameDay
+        ? new Date(cin.getTime() + 86400000)
+        : checkoutPartial
+          ? new Date(cout.getTime() + 86400000)
+          : cout;
 
       // Skip if outside this month
-      if (coutForRange <= monthStart || cin >= monthEndExclusive) continue;
+      if (occupancyEndExclusive <= monthStart || cin >= monthEndExclusive)
+        continue;
       const startClipped = cin < monthStart;
-      const endClipped = coutForRange > monthEndExclusive;
+      const endClipped = occupancyEndExclusive > monthEndExclusive;
       const start = startClipped ? monthStart : cin;
-      const end = endClipped ? monthEndExclusive : coutForRange;
+      const end = endClipped ? monthEndExclusive : occupancyEndExclusive;
       const startDay = start.getDate(); // 1..n
-      const endDayExclusive = end.getMonth() === monthIndex ? end.getDate() : nDays + 1;
-      // Treat same-day as span=1
-      const span = isSameDay ? 1 : endDayExclusive - startDay;
+      const endDayExclusive =
+        end.getMonth() === monthIndex ? end.getDate() : nDays + 1;
+      const span = endDayExclusive - startDay;
       if (span <= 0) continue;
       const roomIndex = sortedRooms.findIndex((rm) => rm.id === r.roomId);
       if (roomIndex < 0) continue;
 
       const startPct = startClipped ? 0 : getCheckInOffset(r.checkInTime);
-      const endPct = endClipped ? 100 : getCheckOutOffset(r.checkOutTime);
+      // The last cell ends at the checkout offset only when that cell *is* the
+      // (partial) checkout day; full intervening nights reach the right edge.
+      const endPct =
+        endClipped || !(isSameDay || checkoutPartial)
+          ? 100
+          : getCheckOutOffset(r.checkOutTime);
 
       out.push({
         res: r,

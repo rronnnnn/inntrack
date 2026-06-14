@@ -31,6 +31,16 @@ export function getCheckInOffset(time: string | undefined): number {
   return (parseMinutes(time) / 1440) * 100;
 }
 
+/**
+ * Whether a checkout time means the checkout day itself is partially occupied.
+ * True when a time is given and it falls after 00:00 — in that case the bar
+ * should extend one extra (partial) cell onto the checkout day. A missing time
+ * or an exact 00:00 checkout occupies no part of the checkout day.
+ */
+export function checkoutOccupiesCheckoutDay(time: string | undefined): boolean {
+  return parseMinutes(time) > 0;
+}
+
 /** Percentage (0–100) where a check-out time falls within a day cell. */
 export function getCheckOutOffset(time: string | undefined): number {
   if (USE_TIME_BUCKETS) {
